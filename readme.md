@@ -4,11 +4,13 @@
 
 ## Setup
 
+> Config variables can be found in the beginning of the script
+
 Download the latest [release](https://github.com/xil-f-dev/Neighbors-Nightmare/releases)
 
 Execute the .sh file as root
 
-#### This tool assumes that you have already installed the **aircrack-ng suite already installed**, and running **Gnome desktop environement** (or you can edit the terminal_cmd variable).
+#### This tool assumes that you have already installed the **aircrack-ng** suite, running **Gnome desktop environement** (or you can edit the terminal_cmd variable).
 
 ## Usage
 
@@ -30,8 +32,10 @@ To use the easy interface, simply execute the .sh file
 
 ###### If you just want to test your network, here is a simple guide about how to use this tool
 
-First, execute the script as root with option **-m 3** to enable monitor mode
-Then, re-execute the script with option **-m 1** to scan the networks around you
-You can press "Ctrl + c" or double press "q" to exit the scan process when you find your network
+First, execute the script as root with option **-m 3** to enable monitor mode.
+Then, re-execute the script with option **-m 1** to scan the networks around you.
+You can press "Ctrl + c" or double press "q" to exit the scan process when you find your network.
 After that, enter the number assigned by the program to your network, then select the third option to try to catch a handshake. I recommend using a decent amount of deauth requests (30 - 50) and stop it when you get the handshake, but it's up to you.
 After getting the handshake, stop the scanning process, then re execute the script with options **-m 2** to select the recent capture file. Choose the most recent one and choose a password list. The cracking process should start and you should get the password of the network if it is in the password list.
+
+###### Please report any issue to help us improve this tool, and make it even useful
