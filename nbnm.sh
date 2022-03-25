@@ -154,10 +154,10 @@ scan_net () {
     }
     prompt_net
     
-    apline=$(cat ${tmpDir}/menu1 | grep "${apnum})")
+    apline=$(cat ${tmpDir}/menu1 | grep -E "\b${apnum}\)")
     apmac=$(echo ${apline} | grep -oE "([0-9a-fA-F]{2}:?){6}")
     apchannel=$(echo ${apline} | cut -d"," -f3 | grep -o "[1-9]*" )
-    apname=$(echo ${apline} | cut -d")" -f2 | cut -d"," -f1 | xargs)
+    apname=$(echo ${apline} | cut -d")" -f2 | cut -d"," -f1 | xargs -0)
     apnamesec=$(echo ${apname} | tr '-' '_'| tr ' ' '_')
     
     echo -e "
@@ -166,7 +166,7 @@ scan_net () {
 }
 
 attack_mode_menu() {
-    clear -x
+    [ ! -z "${2}" ] && clear -x
     if [ -z "${1}" ] || [ "${1}" == "crack" ];then
         [ "${1}" == "crack" ] && echo -ne "\e[1;34mC)\e[0m Try to crack this network (if WPA handshake received)"
         echo -e "
