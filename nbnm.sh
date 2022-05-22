@@ -3,12 +3,16 @@
 ###############  --  CONFIGURATION  --  ##################
 default_interface="wlan0"
 terminal_cmd="gnome-terminal --" # Change to your desktop environment supported terminal
-capdir="${HOME}/airocap" # Directory to save .cap files
+capdir="${HOME}/airocap"         # Directory to save .cap files
+#conf_wordlist="/root/wordlist"
 ###############  --   CONFIG END    --  ##################
 
 mkdir -p ${capdir}
 
-usage() { echo "Usage: ${0} [-m <1-4>]" 1>&2; exit 1; }
+usage() {
+    echo "Usage: ${0} [-m <1-4>]" 1>&2
+    exit 1
+}
 
 echo -e "\e[0;31m
 ███╗   ██╗███████╗██╗ ██████╗ ██╗  ██╗██████╗  ██████╗ ██████╗ ███████╗
@@ -30,8 +34,8 @@ echo -e "\e[0;31m
 Don't use it for illegal activities. You are the only responsable of your actions!
 "
 
-if [ "${EUID}" -ne 0 ]
-then echo -e "\e[1;31mPlease run it as root\e[0m"
+if [ "${EUID}" -ne 0 ]; then
+    echo -e "\e[1;31mPlease run it as root\e[0m"
     exit
 fi
 
@@ -42,56 +46,61 @@ else
 fi
 
 function main_menu {
-    if [ -z "${1}" ]
-    then
+    if [ -z "${1}" ]; then
         echo -e "
 \e[1;34m1)\e[0m Scan networks
 \e[1;34m2)\e[0m Try to crack wifi password
 \e[1;34m3)\e[0m Enable monitor mode
 \e[1;34m4)\e[0m Disable monitor mode
 \e[1;34mX)\e[0m Exit script\n"
-        
+
     fi
-    
+
     if [ -z ${mode} ]; then
         echo -ne "\e[1mChoice :\e[0 m "
-        
+
         read choice
     else
         choice=${mode}
     fi
-    
+
     # in most of case, wlan0mon
-    local imon=`/usr/sbin/iwconfig 2>/dev/null | grep "Mode:Monitor" | cut -d" " -f1`
-    
+    local imon=$(/usr/sbin/iwconfig 2>/dev/null | grep "Mode:Monitor" | cut -d" " -f1)
+
     # save cap files in /tmp
     tmpDir="/tmp/airocap"
     mkdir -p ${tmpDir}
     rm -f ${tmpDir}/*
-    
+
     case ${choice} in
-        1)
-            scan_net
+    1)
+        scan_net
         ;;
-        2)  crack_menu
+    2)
+        crack_menu
         ;;
-        3) #airmon-ng check kill && airmon-ng start wlan0
-            ip link set ${default_interface} down && airmon-ng start ${default_interface}
-            echo -e "\e[3;34mMonitor mode activated.\e[0m"
-            [ -z ${mode} ] && main_menu || exit 1
+    3) #airmon-ng check kill && airmon-ng start wlan0
+        ip link set ${default_interface} down && airmon-ng start ${default_interface}
+        echo -e "\e[3;34mMonitor mode activated.\e[0m"
+        [ -z ${mode} ] && main_menu || exit 1
         ;;
-        4) airmon-ng stop ${imon} && service NetworkManager start
-            echo -e "\e[3;34mMonitor mode disabled for ${imon}.\e[0m"
-            [ -z ${mode} ] && main_menu || exit 1
+    4)
+        airmon-ng stop ${imon} && service NetworkManager start
+        echo -e "\e[3;34mMonitor mode disabled for ${imon}.\e[0m"
+        [ -z ${mode} ] && main_menu || exit 1
         ;;
-        X|x) echo "Bye !" && exit 1
+    X | x)
+        echo "Bye !" && exit 1
         ;;
-        *) echo -e "\e[1;31mInvalid choice\e[0m" && main_menu false
+    *)
+        echo -e "\e[1;31mInvalid choice\e[0m"
+        [ -n ${mode} ] && usage
+        [ -z ${mode} ] && main_menu false || exit 1
         ;;
     esac
 }
 
-scan_net () {
+scan_net() {
     if [ -z ${imon} ]; then
         echo -e "\e[1;31mYou don't have any monitor interfaces. Please enable monitor mode first (3)\e[0m"
         [ -z ${mode} ] && main_menu || exit 1
@@ -134,32 +143,33 @@ scan_net () {
          line=1
         }
      }
-    }' | grep -v "^==>" > ${tmpDir}/menu1
-    
+    }' | grep -v "^==>" >${tmpDir}/menu1
+
     # Print net list
     cat ${tmpDir}/menu1
-    
+
     prompt_net() {
         echo -n $'\n' "Input selected network id [R to rescan]: "
         read apnum
         if [ -z ${apnum} ]; then
             echo -e "\e[1;31mYou must input a number.\e[0m"
             prompt_net
-            elif [ ${apnum} == "R" ] || [ ${apnum} == "r" ]; then
+        elif [ ${apnum} == "R" ] || [ ${apnum} == "r" ]; then
             mode=1 && main_menu false # back to main menu, directly in the scan option
-            elif [ ! -z "${apnum##[0-9]*}" ] || (( ${apnum} < 0 )); then
+        elif [ ! -z "${apnum##[0-9]*}" ] || ((${apnum} < 0)); then
             echo -e "\e[1;31mNetwork id must be a number.\e[0m"
             prompt_net
         fi
     }
     prompt_net
-    
+
     apline=$(cat ${tmpDir}/menu1 | grep -E "\b${apnum}\)")
     apmac=$(echo ${apline} | grep -oE "([0-9a-fA-F]{2}:?){6}")
-    apchannel=$(echo ${apline} | cut -d"," -f3 | grep -o "[1-9]*" )
-    apname=$(echo ${apline} | cut -d")" -f2 | cut -d"," -f1 | xargs -0)
-    apnamesec=$(echo ${apname} | tr '-' '_'| tr ' ' '_')
-    
+    apchannel=$(echo ${apline} | cut -d"," -f3 | grep -o "[1-9]*")
+    apnameline=${apline#*)}
+    apname=$(echo ${apnameline%,*,*,*,*} | sed 's/ *$//g')
+    apnamesec=$(echo ${apname} | tr '-' '_' | tr ' ' '_')
+
     echo -e "
     Selected network \e[1;34m${apname}\e[0m with mac address \e[1;34m${apmac}\e[0m on channel \e[1;34m${apchannel}\e[0m."
     attack_mode_menu
@@ -167,7 +177,7 @@ scan_net () {
 
 attack_mode_menu() {
     [ ! -z "${2}" ] && clear -x
-    if [ -z "${1}" ] || [ "${1}" == "crack" ];then
+    if [ -z "${1}" ] || [ "${1}" == "crack" ]; then
         [ "${1}" == "crack" ] && echo -ne "\e[1;34mC)\e[0m Try to crack this network (if WPA handshake received)"
         echo -e "
 \e[1;34mR)\e[0m Re-scan
@@ -177,99 +187,105 @@ attack_mode_menu() {
 \e[1;34mB)\e[0m Back to main menu
 \e[1;34mX)\e[0m Exit script"
     fi
-    
+
     echo -ne $'\n' "\e[1mChoice :\e[0m "
-    
+
     read attackmode
     case ${attackmode} in
-        C|c) mode=2 && main_menu false
+    C | c)
+        mode=2 && main_menu false
         ;;
-        R|r) mode=1 && main_menu false
+    R | r)
+        mode=1 && main_menu false
         ;;
-        1) capsave="${capdir}/${apnamesec}-[${apmac}]/"
-            mkdir -p ${capsave}
-            rm -f ${capsave}/*
-            airodump-ng --bssid ${apmac} -c ${apchannel} -w "${capsave}/out" ${imon}
-            attack_mode_menu "crack"
+    1)
+        capsave="${capdir}/${apnamesec}-[${apmac}]/"
+        mkdir -p ${capsave}
+        rm -f ${capsave}/*
+        airodump-ng --bssid ${apmac} -c ${apchannel} -w "${capsave}/out" ${imon}
+        attack_mode_menu "crack"
         ;;
-        2) echo -n "Number of deauthentification requests you want to send (0 for unlimited) [default 10]: "
-            read deauthnbr
-            if [ -z ${deauthnbr} ] || [ ! -z "${deauthnbr##[0-9]*}" ] || (( ${deauthnbr} < 0 )) 2>/dev/null; then
-                echo -e "\e[1;31mInvalid choice, using 10.\e[0m"
-                deauthnbr=10
-            fi
-            iwconfig ${imon} channel ${apchannel}
-            aireplay-ng -0 ${deauthnbr} -a ${apmac} ${imon}
-            attack_mode_menu
+    2)
+        echo -n "Number of deauthentification requests you want to send (0 for unlimited) [default 10]: "
+        read deauthnbr
+        if [ -z ${deauthnbr} ] || [ ! -z "${deauthnbr##[0-9]*}" ] || ((${deauthnbr} < 0)) 2>/dev/null; then
+            echo -e "\e[1;31mInvalid choice, using 10.\e[0m"
+            deauthnbr=10
+        fi
+        iwconfig ${imon} channel ${apchannel}
+        aireplay-ng -0 ${deauthnbr} -a ${apmac} ${imon}
+        attack_mode_menu
         ;;
-        3)clear -x
-            echo -e "\e[1;31mNOTE:\e[0m \e[3mTo stop deauth, simply Ctrl+C in the popup terminal window.\e[0m"
-            echo -n "Number of deauthentification requests you want to send (0 for unlimited) [default 10]: "
-            read deauthnbr
-            if [ -z ${deauthnbr} ] || [ ! -z "${deauthnbr##[0-9]*}" ] || (( ${deauthnbr} < 0 )) 2>/dev/null; then
-                echo -e "\e[1;31mInvalid choice, using 10.\e[0m"
-                deauthnbr=10
-            fi
-            capsave="${capdir}/${apnamesec}-[${apmac}]/"
-            mkdir -p ${capsave}
-            rm -f ${capsave}/*
-            iwconfig ${imon} channel ${apchannel}
-            ${terminal_cmd} sh -c "aireplay-ng -0 ${deauthnbr} -a ${apmac} ${imon}"
-            airodump-ng --bssid ${apmac} -c ${apchannel} -w "${capsave}/out" ${imon}
-            attack_mode_menu "crack"
+    3)
+        clear -x
+        echo -e "\e[1;31mNOTE:\e[0m \e[3mTo stop deauth, simply Ctrl+C in the popup terminal window.\e[0m"
+        echo -n "Number of deauthentification requests you want to send (0 for unlimited) [default 10]: "
+        read deauthnbr
+        if [ -z ${deauthnbr} ] || [ ! -z "${deauthnbr##[0-9]*}" ] || ((${deauthnbr} < 0)) 2>/dev/null; then
+            echo -e "\e[1;31mInvalid choice, using 10.\e[0m"
+            deauthnbr=10
+        fi
+        capsave="${capdir}/${apnamesec}-[${apmac}]/"
+        mkdir -p ${capsave}
+        rm -f ${capsave}/*
+        iwconfig ${imon} channel ${apchannel}
+        ${terminal_cmd} sh -c "aireplay-ng -0 ${deauthnbr} -a ${apmac} ${imon}"
+        airodump-ng --bssid ${apmac} -c ${apchannel} -w "${capsave}/out" ${imon}
+        attack_mode_menu "crack"
         ;;
-        B|b) main_menu
+    B | b)
+        main_menu
         ;;
-        X|x) echo "Bye !" && exit 1
+    X | x)
+        echo "Bye !" && exit 1
         ;;
-        *) echo -e "\e[1;31mInvalid choice\e[0m" && attack_mode_menu false
+    *)
+        echo -e "\e[1;31mInvalid choice\e[0m" && attack_mode_menu false
         ;;
-        
+
     esac
 }
 
-crack_menu (){
-    clear -x
-    echo -e "\e[1mList of captured networks:\e[0m"
-    list=""
+crack_menu() {
+    [[ -z ${1} ]] && clear -x && echo -e "\e[1mList of captured networks:\e[0m"
     i=0
-    capdirlist=$(ls -t ${capdir} | tr ' ' '\n')
-    for dir in ${capdirlist}; do
-        list+="\e[1;34m${i})\e[0m ${dir}"
-        [[ ${i} -eq 0 ]] && list+="         \e[3;34mrecent\e[0m"
-        list+=$'\n'
+    capdirlist=($(ls -t ${capdir})) # | tr ' ' '\n'
+    for dir in "${capdirlist[@]}"; do
+        if [ -z ${1} ]; then
+            echo -ne '\n' "\e[1;34m${i})\e[0m ${dir}"
+            [[ ${i} -eq 0 ]] && echo -ne "         \e[3;34mrecent\e[0m"
+        fi
         ((++i))
     done
-    [[ -z ${1} ]] && echo -e "${list}"
-    
+    [[ -z ${1} ]] && echo -e '\n'
     echo -ne "\e[1mID of the network you want to crack : \e[0m"
     read macchoice
-    if [ -z ${macchoice} ] || (( ${macchoice} >= ${i} )); then
+    if [ -z ${macchoice} ] || ((${macchoice} >= ${i})); then
         echo -e "\e[1;31mInvalid choice\e[0m" && crack_menu false
     fi
-    
-    selmac=$(echo -e "$list" | grep "${macchoice})" | grep -oE "([0-9a-fA-F]{2}:?){6}")
-    echo "Selected MAC: ${selmac}"
-    wordlist=$(zenity --file-selection --title="Select a wordlist" --file-filter="*.txt *.lst")
-    echo "${capdir}/${selmac}/*.cap" $wordlist
-    aircrack-ng "${capdir}/${selmac}/out-01.cap" -w "${wordlist}"
+
+    selap=${capdirlist[@]:$macchoice:1}
+    echo "Selected MAC: ${selap}"
+    wordlist=${conf_wordlist:=$(zenity --file-selection --title="Select a wordlist" --file-filter="*.txt *.lst")}
+    echo "${capdir}/${selap}/*.cap" $wordlist
+    aircrack-ng "${capdir}/${selap}/out-01.cap" -w "${wordlist}"
 }
 
 # Parse flags
 while getopts ":m:" option; do
     case "${option}" in
-        m)
-            mode=${OPTARG}
-            # ((mode < 1 || mode > 4)) || usage
+    m)
+        mode=${OPTARG}
+        ((mode < 1 || mode > 4)) || return usage
         ;;
-        *)
-            usage
+    *)
+        usage
         ;;
     esac
 done
 
 # Allow to use $1
-shift $((OPTIND-1))
+shift $((OPTIND - 1))
 
 if [ ! -z "${mode}" ]; then
     main_menu false
