@@ -1,28 +1,16 @@
 #!/bin/bash
 
-###############  --  CONFIGURATION  --  ##################
-default_interface="wlan0"
-terminal_cmd="gnome-terminal --" # Change to your desktop environment supported terminal
-capdir="${HOME}/airocap"         # Directory to save .cap files
-#conf_wordlist="/root/wordlist"
-###############  --  CONFIG END     --  ##################
-###############  --  COLORS         --  ##################
-NORMAL=$(tput sgr0)
-BLUE=$(tput setaf 4)
-RED=$(tput setaf 1)
-GREEN=$(tput setaf 2)
-BOLD=$(tput bold)
-ITALIC=$(tput sitm)
-###############  --  COLORS END     --  ##################
+source config.sh # Colors and config
 
 mkdir -p ${capdir}
 
 usage() {
-    echo "Usage: ${0} [-m <1-4>]" 1>&2
+    echo "Usage: ${0} [-m <1-4>] [-d]" 1>&2
     exit 1
 }
 
-echo "${RED}
+function main_menu {
+    [ $discretModeEnabled = false ] && echo "${RED}
 ███╗   ██╗███████╗██╗ ██████╗ ██╗  ██╗██████╗  ██████╗ ██████╗ ███████╗
 ████╗  ██║██╔════╝██║██╔════╝ ██║  ██║██╔══██╗██╔═══██╗██╔══██╗██╔════╝
 ██╔██╗ ██║█████╗  ██║██║  ███╗███████║██████╔╝██║   ██║██████╔╝███████╗
@@ -38,22 +26,21 @@ echo "${RED}
 ╚═╝  ╚═══╝╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝${NORMAL}
 ${BOLD}Wifi craking tool  -  made in front of aircrack-ng${NORMAL}
 
-${BOLD}${RED}DISCLAIMER:${NORMAL} This tool is for EDUCATIONAL PORPOSES ONLY.
+${BOLD}${RED}DISCLAIMER:${NORMAL} This tool is for EDUCATIONAL PURPOSES ONLY.
 Don't use it for illegal activities. You are the only responsable of your actions!
 "
 
-if [ "${EUID}" -ne 0 ]; then
-    echo -e "${BOLD}${RED}Please run it as root${NORMAL}"
-    exit
-fi
+    if [ "${EUID}" -ne 0 ]; then
+        echo -e "${BOLD}${RED}Please run it as root${NORMAL}"
+        exit
+    fi
 
-if [ ! -z $(/usr/sbin/iwconfig 2>/dev/null | grep "Mode:Monitor" | cut -d" " -f1) ]; then
-    echo -e "${ITALIC}${GREEN}Monitor mode enabled !${NORMAL}"
-else
-    echo -e "${ITALIC}${RED}Monitor mode disabled !${NORMAL}"
-fi
+    if [ ! -z $(/usr/sbin/iwconfig 2>/dev/null | grep "Mode:Monitor" | cut -d" " -f1) ]; then
+        echo -e "${ITALIC}${GREEN}Monitor mode enabled !${NORMAL}"
+    else
+        echo -e "${ITALIC}${RED}Monitor mode disabled !${NORMAL}"
+    fi
 
-function main_menu {
     if [ -z "${1}" ]; then
         echo -e "
 ${BOLD}${BLUE}1)${NORMAL} Scan networks
@@ -75,8 +62,7 @@ ${BOLD}${BLUE}X)${NORMAL} Exit script\n"
     # in most of case, wlan0mon
     local imon=$(/usr/sbin/iwconfig 2>/dev/null | grep "Mode:Monitor" | cut -d" " -f1)
 
-    # save cap files in /tmp
-    tmpDir="/tmp/airocap"
+    # save cap files in /tmp (variable in config file)
     mkdir -p ${tmpDir}
     rm -f ${tmpDir}/*
 
@@ -281,11 +267,14 @@ crack_menu() {
 }
 
 # Parse flags
-while getopts ":m:" option; do
+while getopts ":m:d" option; do
     case "${option}" in
     m)
         mode=${OPTARG}
         ((mode < 1 || mode > 4)) || return usage
+        ;;
+    d)
+        discretModeEnabled=true
         ;;
     *)
         usage

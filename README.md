@@ -1,6 +1,9 @@
 # Neighbour's Nightmare
 
-### A wifi craking tool based on Aircrack-ng
+> ### A wifi craking tool based on Aircrack-ng
+
+**<span style="color:#7E0000">DISCLAIMER:</span> This tool is for EDUCATIONAL PURPOSES ONLY.
+Don't use it for illegal activities. You are the only responsable of your actions!**
 
 ## Setup
 
@@ -20,10 +23,11 @@ To use the easy interface, simply execute the .sh file
 
 ## Options
 
-| Command          | Usage                                                                                                                                                                                                                                                          |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--help` or `-h` | Shows the help page                                                                                                                                                                                                                                            |
+| Command          | Usage |
+| ---------------- | --------------- |
+| `--help` or `-h` | Shows the help page |
 | `-m <1-4>`       | Specifies the mode to use, where :<br/>`-m 1` starts a network scan<br/>`-m 2` asks you for a recent .cap file to try with a wordlist<br/>`-m 3` enables monitor mode on your network interface<br/>`-m 4` disables monitor mode on the monitor mode interface |
+| `-d` | Discret mode, removes the neighbours nightmare ASCII art |
 
 ## Configuration
 
